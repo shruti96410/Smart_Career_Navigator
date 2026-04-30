@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smart Career Navigator - Interactive</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   /* --- Your original, excellent CSS remains 100% the same --- */
   :root {
@@ -346,6 +347,13 @@
   .task-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; font-size: 13px; }
   .task-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .task-time { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+  /* charts */
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px; }
+  .chart-card:hover { border-color: rgba(99,102,241,0.4); }
+  .chart-title { font-family: var(--font-head); font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  canvas { max-height: 220px; }
 </style>
 </head>
 <body>
@@ -578,17 +586,115 @@
     const subs = ["↑ +8% this month", "out of 20", "2 new this week", "Keep going!"];
     const colors = ["#818CF8", "#10B981", "#F59E0B", "#06B6D4"];
     const icons = ["🎯", "✅", "🏆", "🔥"];
+
     document.getElementById('dashboardContent').innerHTML = `
-      <div class="grid-4" style="margin-bottom:20px">${stats.map((s,i) => `<div class="stat-card"><div class="stat-icon" style="background:rgba(99,102,241,0.15)">${icons[i]}</div><div class="stat-label">${s}</div><div class="stat-value" style="color:${colors[i]}">${values[i]}</div><div class="stat-sub">${subs[i]}</div></div>`).join('')}</div>
-      <div class="grid-2"><div class="card"><div class="card-title">📊 Skill Progress</div>${Object.entries(userSkills).slice(0,6).map(([k,v]) => `<div class="skill-row"><span class="skill-name">${k}</span><div class="skill-track"><div class="skill-fill" style="width:${v}%;background:linear-gradient(90deg,#6366F1,#818CF8)"></div></div><span class="skill-pct">${v}%</span></div>`).join('')}</div>
-      <div class="card"><div class="card-title">🕐 Recent Activity</div>
-      <div class="activity-item"><div class="activity-icon">✅</div><span class="activity-text">Completed Pandas Tutorial</span><span class="activity-time">Today</span></div>
-      <div class="activity-item"><div class="activity-icon">✅</div><span class="activity-text">Built Linear Regression Model</span><span class="activity-time">Yesterday</span></div>
-      <div class="activity-item"><div class="activity-icon">📖</div><span class="activity-text">Neural Networks — In Progress</span><span class="activity-time">2 days ago</span></div>
-      <div class="activity-item"><div class="activity-icon">🏆</div><span class="activity-text">Earned ML Learner Badge</span><span class="activity-time">3 days ago</span></div>
-      <div class="activity-item"><div class="activity-icon">🎯</div><span class="activity-text">Updated Career Goal to ${careersData[selectedCareerId].title}</span><span class="activity-time">1 week ago</span></div>
-      </div></div>
+      <div class="grid-4" style="margin-bottom:20px">
+        ${stats.map((s,i) => `<div class="stat-card"><div class="stat-icon" style="background:rgba(99,102,241,0.15)">${icons[i]}</div><div class="stat-label">${s}</div><div class="stat-value" style="color:${colors[i]}">${values[i]}</div><div class="stat-sub">${subs[i]}</div></div>`).join('')}
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-title">📊 Skill Levels (Bar)</div>
+          <canvas id="barChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">📈 Weekly Progress (Line)</div>
+          <canvas id="lineChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">🥧 Readiness (Pie)</div>
+          <canvas id="pieChart"></canvas>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">📊 Skill Progress</div>
+          ${Object.entries(userSkills).slice(0,6).map(([k,v]) => `<div class="skill-row"><span class="skill-name">${k}</span><div class="skill-track"><div class="skill-fill" style="width:${v}%;background:linear-gradient(90deg,#6366F1,#818CF8)"></div></div><span class="skill-pct">${v}%</span></div>`).join('')}
+        </div>
+        <div class="card">
+          <div class="card-title">🕐 Recent Activity</div>
+          <div class="activity-item"><div class="activity-icon">✅</div><span class="activity-text">Completed Pandas Tutorial</span><span class="activity-time">Today</span></div>
+          <div class="activity-item"><div class="activity-icon">✅</div><span class="activity-text">Built Linear Regression Model</span><span class="activity-time">Yesterday</span></div>
+          <div class="activity-item"><div class="activity-icon">📖</div><span class="activity-text">Neural Networks — In Progress</span><span class="activity-time">2 days ago</span></div>
+          <div class="activity-item"><div class="activity-icon">🏆</div><span class="activity-text">Earned ML Learner Badge</span><span class="activity-time">3 days ago</span></div>
+          <div class="activity-item"><div class="activity-icon">🎯</div><span class="activity-text">Updated Career Goal to ${careersData[selectedCareerId].title}</span><span class="activity-time">1 week ago</span></div>
+        </div>
+      </div>
     `;
+
+    // ── BAR CHART ──
+    new Chart(document.getElementById('barChart'), {
+      type: 'bar',
+      data: {
+        labels: ['Python', 'ML', 'SQL', 'React', 'Deep L.', 'NLP'],
+        datasets: [{
+          label: 'Skill Level %',
+          data: [85, 70, 60, 55, 30, 25],
+          backgroundColor: ['#6366F1','#10B981','#06B6D4','#F43F5E','#F59E0B','#8B5CF6'],
+          borderRadius: 8,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#6B7280', font: { size: 10 } }, grid: { color: '#252A47' } },
+          y: { ticks: { color: '#6B7280', font: { size: 10 } }, grid: { color: '#252A47' }, max: 100 }
+        }
+      }
+    });
+
+    // ── LINE CHART ──
+    new Chart(document.getElementById('lineChart'), {
+      type: 'line',
+      data: {
+        labels: ['Week 1','Week 2','Week 3','Week 4','Week 5','Week 6'],
+        datasets: [{
+          label: 'Readiness %',
+          data: [30, 42, 52, 60, 68, 75],
+          borderColor: '#6366F1',
+          backgroundColor: 'rgba(99,102,241,0.1)',
+          tension: 0.4,
+          fill: true,
+          pointBackgroundColor: '#818CF8',
+          pointRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#6B7280', font: { size: 10 } }, grid: { color: '#252A47' } },
+          y: { ticks: { color: '#6B7280', font: { size: 10 } }, grid: { color: '#252A47' }, max: 100 }
+        }
+      }
+    });
+
+    // ── PIE CHART ──
+    new Chart(document.getElementById('pieChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Ready', 'In Progress', 'Not Started'],
+        datasets: [{
+          data: [75, 15, 10],
+          backgroundColor: ['#10B981','#6366F1','#252A47'],
+          borderWidth: 0,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        cutout: '65%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#6B7280', font: { size: 11 }, padding: 12 }
+          }
+        }
+      }
+    });
   }
 
   // Global UI Actions
